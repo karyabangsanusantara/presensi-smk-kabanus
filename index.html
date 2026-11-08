@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Presensi - SMK Karya Bangsa Nusantara</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- HTML5-QRCode Scanner -->
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#0F172A',
+              navy: '#1E293B',
+              primary: '#1E40AF',
+              accent: '#3B82F6',
+              light: '#F8FAFC'
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-100 font-sans min-h-screen flex flex-col md:flex-row text-slate-800">
+
+  <!-- ================= BILAH SIDEBAR KIRI (LEFT SIDEBAR) ================= -->
+  <aside class="w-full md:w-64 bg-slate-900 text-slate-300 flex-shrink-0 flex flex-col justify-between border-r border-slate-800 min-h-screen">
+    <div>
+      <!-- Header / Identitas Sekolah -->
+      <div class="p-5 border-b border-slate-800 flex items-center gap-3 bg-slate-950">
+        <div class="bg-blue-600 text-white p-2.5 rounded-xl text-lg font-bold flex items-center justify-center">
+          <i class="fa-solid fa-school"></i>
+        </div>
+        <div>
+          <h1 class="text-sm font-bold text-white tracking-wide leading-tight">SMK KARYA BANGSA</h1>
+          <p class="text-[11px] text-blue-400 font-semibold tracking-wider uppercase">NUSANTARA</p>
+        </div>
+      </div>
+
+      <!-- Menu Navigasi Utama (Vertical Links) -->
+      <nav class="p-3 space-y-1">
+        <div class="px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Main Menu</div>
+
+        <button onclick="switchTab('guru')" id="tab-guru" class="nav-btn w-full px-3.5 py-3 rounded-xl text-xs font-semibold transition bg-blue-700 text-white flex items-center gap-3">
+          <i class="fa-solid fa-qrcode text-base w-5 text-center"></i> Presensi Guru
+        </button>
+
+        <button onclick="switchTab('siswa')" id="tab-siswa" class="nav-btn w-full px-3.5 py-3 rounded-xl text-xs font-semibold transition text-slate-400 hover:bg-slate-800 hover:text-slate-200 flex items-center gap-3">
+          <i class="fa-solid fa-users-line text-base w-5 text-center"></i> Presensi Siswa
+        </button>
+
+        <button onclick="switchTab('master')" id="tab-master" class="nav-btn w-full px-3.5 py-3 rounded-xl text-xs font-semibold transition text-slate-400 hover:bg-slate-800 hover:text-slate-200 flex items-center gap-3">
+          <i class="fa-solid fa-database text-base w-5 text-center"></i> Data Master
+        </button>
+
+        <div class="pt-4 px-3 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Pengaturan</div>
+
+        <button onclick="switchTab('settings')" id="tab-settings" class="nav-btn w-full px-3.5 py-3 rounded-xl text-xs font-semibold transition text-slate-400 hover:bg-slate-800 hover:text-slate-200 flex items-center gap-3">
+          <i class="fa-solid fa-gear text-base w-5 text-center"></i> API Config
+        </button>
+      </nav>
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="p-4 border-t border-slate-800 bg-slate-950/50 text-[11px] text-slate-500 text-center">
+      <p>&copy; 2026 SMK KBN</p>
+      <p class="text-[10px] text-slate-600">Presensi Terpadu v2.0</p>
+    </div>
+  </aside>
+
+  <!-- ================= AREA KONTEN UTAMA (RIGHT CONTENT) ================= -->
+  <div class="flex-1 flex flex-col min-h-screen">
+    
+    <!-- Top Header Bar -->
+    <header class="bg-white border-b border-slate-200 px-6 py-4 flex justify-between items-center shadow-sm">
+      <h2 id="page-title" class="text-lg font-bold text-slate-800 flex items-center gap-2">
+        <i class="fa-solid fa-qrcode text-blue-700"></i> Presensi Guru (QR Code)
+      </h2>
+      <div class="text-xs text-slate-500 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 font-medium flex items-center gap-2">
+        <i class="fa-regular fa-calendar"></i>
+        <span id="current-date-display">-- Hari ini --</span>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="p-6 flex-grow">
+
+      <!-- API NOT CONFIGURED WARNING BANNER -->
+      <div id="api-warning" class="hidden mb-6 bg-amber-50 border-l-4 border-amber-500 p-4 rounded-r shadow-sm">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <i class="fa-solid fa-triangle-exclamation text-amber-600 text-xl"></i>
+            <p class="text-sm text-amber-800 font-medium">
+              URL Google Apps Script API belum dikonfigurasi. Masuk ke menu <strong>API Config</strong> di bilah kiri.
+            </p>
+          </div>
+          <button onclick="switchTab('settings')" class="px-3 py-1 bg-amber-600 text-white rounded text-xs font-semibold hover:bg-amber-700">Set API URL</button>
+        </div>
+      </div>
+
+      <!-- 1. MODUL PRESENSI GURU (QR SCANNER) -->
+      <section id="sec-guru" class="tab-content space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Pemindai QR Code -->
+          <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-center mb-4">
+              <div>
+                <h3 class="text-md font-bold text-slate-900">Pemindai QR Code Guru</h3>
+                <p class="text-xs text-slate-500">Arahkan Kartu / QR Code (ID Guru / NIK) ke kamera</p>
+              </div>
+              
+              <!-- Mode Absen: Masuk / Pulang -->
+              <div class="inline-flex rounded-lg p-1 bg-slate-100 border border-slate-200">
+                <button id="btn-mode-masuk" onclick="setModePresensi('MASUK')" class="px-3 py-1.5 rounded-md text-xs font-bold transition bg-emerald-600 text-white shadow-sm">
+                  Absen Masuk
+                </button>
+                <button id="btn-mode-pulang" onclick="setModePresensi('PULANG')" class="px-3 py-1.5 rounded-md text-xs font-bold transition text-slate-600 hover:text-slate-900">
+                  Absen Pulang
+                </button>
+              </div>
+            </div>
+
+            <!-- Container Camera -->
+            <div class="relative bg-slate-950 rounded-xl overflow-hidden min-h-[300px] flex items-center justify-center border-2 border-dashed border-slate-300">
+              <div id="reader" class="w-full h-full"></div>
+              <div id="scanner-placeholder" class="text-center p-6 text-slate-400">
+                <i class="fa-solid fa-qrcode text-6xl mb-3 text-slate-600 animate-pulse"></i>
+                <p class="text-sm font-medium">Kamera Belum Aktif</p>
+                <button onclick="startScanner()" class="mt-4 px-5 py-2.5 bg-blue-700 text-white rounded-xl text-sm font-semibold hover:bg-blue-800 transition shadow">
+                  <i class="fa-solid fa-power-off me-2"></i> Aktifkan Kamera
+                </button>
+              </div>
+            </div>
+
+            <div class="mt-4 flex justify-between items-center text-xs text-slate-500">
+              <span>Batas Tepat Waktu: <strong class="text-slate-700">07:15 WIB</strong></span>
+              <button onclick="stopScanner()" id="btn-stop-camera" class="hidden text-rose-600 hover:underline font-medium">
+                <i class="fa-solid fa-stop me-1"></i> Matikan Kamera
+              </button>
+            </div>
+          </div>
+
+          <!-- Fallback Input Manual & Status Panel -->
+          <div class="space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+              <h3 class="text-sm font-bold text-slate-900 mb-1">Input Manual ID Guru</h3>
+              <p class="text-xs text-slate-500 mb-4">Gunakan ini jika kamera bermasalah</p>
+              
+              <form onsubmit="handleManualGuruSubmit(event)" class="space-y-3">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-700 mb-1">ID Guru / NIK</label>
+                  <input type="text" id="manual-id-guru" placeholder="Contoh: GURU001 / 1985..." required
+                    class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+                </div>
+                <button type="submit" class="w-full py-2.5 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition shadow">
+                  Submit Presensi
+                </button>
+              </form>
+            </div>
+
+            <div class="bg-slate-900 text-white p-6 rounded-2xl shadow-sm">
+              <h4 class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase mb-3">Presensi Terakhir</h4>
+              <div id="last-guru-scan" class="text-slate-300 text-xs space-y-2">
+                <p class="italic text-slate-500">Belum ada pemindaian pada sesi ini.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- 2. MODUL PRESENSI SISWA (WALI KELAS / ADMIN) -->
+      <section id="sec-siswa" class="tab-content hidden space-y-6">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100">
+            <div>
+              <h3 class="text-md font-bold text-slate-900">Presensi Rombongan Belajar (Rombel)</h3>
+              <p class="text-xs text-slate-500">Pilih Rombel untuk mencatat kehadiran siswa secara massal</p>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Tanggal</label>
+                <input type="date" id="tgl-presensi-siswa" class="px-3 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-600">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Pilih Rombel</label>
+                <select id="select-rombel" onchange="loadSiswaByKelas()" class="px-4 py-2 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-600 bg-white min-w-[180px]">
+                  <option value="">-- Memuat Rombel... --</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick Summary Bar -->
+          <div class="py-4 flex flex-wrap gap-4 text-xs font-semibold text-slate-600">
+            <span class="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full" id="stat-h">Hadir (H): 0</span>
+            <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full" id="stat-s">Sakit (S): 0</span>
+            <span class="bg-amber-100 text-amber-800 px-3 py-1 rounded-full" id="stat-i">Izin (I): 0</span>
+            <span class="bg-rose-100 text-rose-800 px-3 py-1 rounded-full" id="stat-a">Alpa (A): 0</span>
+          </div>
+
+          <!-- Tabel Presensi Siswa -->
+          <div class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-sm border-collapse">
+              <thead class="bg-slate-50 text-slate-700 text-xs uppercase font-semibold border-b border-slate-200">
+                <tr>
+                  <th class="p-3.5 w-12 text-center">No</th>
+                  <th class="p-3.5">NIS / NISN</th>
+                  <th class="p-3.5">Nama Siswa</th>
+                  <th class="p-3.5 text-center">Status Kehadiran</th>
+                  <th class="p-3.5">Keterangan</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-siswa" class="divide-y divide-slate-100 text-slate-700">
+                <tr>
+                  <td colspan="5" class="p-8 text-center text-slate-400">
+                    Silakan pilih Rombel terlebih dahulu.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="mt-6 flex justify-end">
+            <button onclick="simpanPresensiSiswaMassal()" id="btn-simpan-siswa" disabled class="px-6 py-3 bg-blue-700 text-white rounded-xl text-sm font-semibold hover:bg-blue-800 transition shadow flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              <i class="fa-solid fa-floppy-disk"></i> Simpan Presensi Massal
+            </button>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- 3. MODUL KELOLA DATA MASTER -->
+      <section id="sec-master" class="tab-content hidden space-y-6">
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <div class="flex justify-between items-center mb-6">
+            <div>
+              <h3 class="text-md font-bold text-slate-900">Data Master Sekolah</h3>
+              <p class="text-xs text-slate-500">Database Guru dan Siswa terhubung dari Google Sheets</p>
+            </div>
+            <button onclick="fetchDataMaster()" class="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition">
+              <i class="fa-solid fa-rotate me-1"></i> Refresh Data
+            </button>
+          </div>
+
+          <div class="border-b border-slate-200 mb-4 flex gap-4 text-sm font-semibold">
+            <button onclick="switchMasterTab('guru')" id="subtab-guru" class="pb-2 text-blue-700 border-b-2 border-blue-700">Data Guru</button>
+            <button onclick="switchMasterTab('siswa')" id="subtab-siswa" class="pb-2 text-slate-400 hover:text-slate-700">Data Siswa</button>
+          </div>
+
+          <!-- Data Guru -->
+          <div id="master-guru-container" class="overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-xs text-slate-700 uppercase font-semibold">
+                <tr>
+                  <th class="p-3">ID Guru / NIK</th>
+                  <th class="p-3">Nama Lengkap</th>
+                  <th class="p-3">Mata Pelajaran / Jabatan</th>
+                  <th class="p-3">No HP</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-master-guru" class="divide-y divide-slate-100">
+                <tr><td colspan="4" class="p-4 text-center text-slate-400">Klik 'Refresh Data' untuk memuat.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Data Siswa -->
+          <div id="master-siswa-container" class="hidden overflow-x-auto rounded-xl border border-slate-200">
+            <table class="w-full text-left text-sm">
+              <thead class="bg-slate-50 text-xs text-slate-700 uppercase font-semibold">
+                <tr>
+                  <th class="p-3">NIS</th>
+                  <th class="p-3">Nama Siswa</th>
+                  <th class="p-3">Kelas / Rombel</th>
+                  <th class="p-3">Jurusan</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-master-siswa" class="divide-y divide-slate-100">
+                <tr><td colspan="4" class="p-4 text-center text-slate-400">Klik 'Refresh Data' untuk memuat.</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- 4. MODUL SETTINGS / API CONFIG -->
+      <section id="sec-settings" class="tab-content hidden space-y-6">
+        <div class="max-w-2xl bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+          <h3 class="text-md font-bold text-slate-900 mb-1">Konfigurasi REST API</h3>
+          <p class="text-xs text-slate-500 mb-6">Hubungkan Frontend GitHub Pages dengan Backend Apps Script Web App</p>
+
+          <form onsubmit="saveApiSettings(event)" class="space-y-4">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Google Apps Script Web App URL</label>
+              <input type="url" id="input-api-url" placeholder="https://script.google.com/macros/s/.../exec" required
+                class="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm focus:ring-2 focus:ring-blue-600 focus:outline-none">
+            </div>
+
+            <div class="pt-2 flex gap-3">
+              <button type="submit" class="px-5 py-2.5 bg-blue-700 text-white rounded-xl text-sm font-semibold hover:bg-blue-800 transition shadow">
+                Simpan Konfigurasi
+              </button>
+              <button type="button" onclick="testConnection()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-sm font-semibold transition">
+                Test Koneksi DB
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- SCRIPT ENGINE -->
+  <script>
+    function playBeep(type = 'success') {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'success') {
+          osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.15);
+        } else {
+          osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.3);
+        }
+      } catch (e) {
+        console.log(e);
+      }
+    }
+
+    let API_URL = localStorage.getItem("GAS_API_URL") || "";
+    let html5QrcodeScanner = null;
+    let modePresensiGuru = "MASUK";
+    let listSiswaLoaded = [];
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("tgl-presensi-siswa").valueAsDate = new Date();
+      
+      const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      document.getElementById("current-date-display").innerText = new Date().toLocaleDateString('id-ID', options);
+
+      if (!API_URL) {
+        document.getElementById("api-warning").classList.remove("hidden");
+      } else {
+        document.getElementById("input-api-url").value = API_URL;
+        loadDaftarKelas();
+      }
+    });
+
+    function switchTab(tabName) {
+      document.querySelectorAll(".tab-content").forEach(el => el.classList.add("hidden"));
+      document.querySelectorAll(".nav-btn").forEach(el => {
+        el.classList.remove("bg-blue-700", "text-white");
+        el.classList.add("text-slate-400", "hover:bg-slate-800", "hover:text-slate-200");
+      });
+
+      document.getElementById(`sec-${tabName}`).classList.remove("hidden");
+      const activeBtn = document.getElementById(`tab-${tabName}`);
+      activeBtn.classList.add("bg-blue-700", "text-white");
+      activeBtn.classList.remove("text-slate-400", "hover:bg-slate-800");
+
+      const titleMap = {
+        guru: '<i class="fa-solid fa-qrcode text-blue-700 me-2"></i> Presensi Guru (QR Code)',
+        siswa: '<i class="fa-solid fa-users-line text-blue-700 me-2"></i> Presensi Siswa (Rombel)',
+        master: '<i class="fa-solid fa-database text-blue-700 me-2"></i> Kelola Data Master',
+        settings: '<i class="fa-solid fa-gear text-blue-700 me-2"></i> Pengaturan REST API'
+      };
+      document.getElementById("page-title").innerHTML = titleMap[tabName];
+
+      if (tabName !== "guru") {
+        stopScanner();
+      }
+    }
+
+    function switchMasterTab(type) {
+      if (type === 'guru') {
+        document.getElementById('master-guru-container').classList.remove('hidden');
+        document.getElementById('master-siswa-container').classList.add('hidden');
+        document.getElementById('subtab-guru').className = "pb-2 text-blue-700 border-b-2 border-blue-700";
+        document.getElementById('subtab-siswa').className = "pb-2 text-slate-400 hover:text-slate-700";
+      } else {
+        document.getElementById('master-guru-container').classList.add('hidden');
+        document.getElementById('master-siswa-container').classList.remove('hidden');
+        document.getElementById('subtab-siswa').className = "pb-2 text-blue-700 border-b-2 border-blue-700";
+        document.getElementById('subtab-guru').className = "pb-2 text-slate-400 hover:text-slate-700";
+      }
+    }
+
+    function saveApiSettings(e) {
+      e.preventDefault();
+      const url = document.getElementById("input-api-url").value.trim();
+      localStorage.setItem("GAS_API_URL", url);
+      API_URL = url;
+      document.getElementById("api-warning").classList.add("hidden");
+
+      Swal.fire({
+        icon: 'success',
+        title: 'Tersimpan',
+        text: 'URL API Google Apps Script berhasil disimpan!',
+        timer: 1500,
+        showConfirmButton: false
+      });
+
+      loadDaftarKelas();
+    }
+
+    async function testConnection() {
+      if (!API_URL) return alert("Masukkan URL API terlebih dahulu.");
+      Swal.fire({ title: 'Menghubungkan...', didOpen: () => Swal.showLoading() });
+
+      try {
+        const res = await fetch(`${API_URL}?action=initDB`);
+        const data = await res.json();
+        if (data.success) {
+          Swal.fire('Berhasil!', data.message, 'success');
+        } else {
+          Swal.fire('Gagal!', data.message, 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error Koneksi', err.toString(), 'error');
+      }
+    }
+
+    function setModePresensi(mode) {
+      modePresensiGuru = mode;
+      const btnMasuk = document.getElementById("btn-mode-masuk");
+      const btnPulang = document.getElementById("btn-mode-pulang");
+
+      if (mode === "MASUK") {
+        btnMasuk.className = "px-3 py-1.5 rounded-md text-xs font-bold transition bg-emerald-600 text-white shadow-sm";
+        btnPulang.className = "px-3 py-1.5 rounded-md text-xs font-bold transition text-slate-600 hover:text-slate-900";
+      } else {
+        btnPulang.className = "px-3 py-1.5 rounded-md text-xs font-bold transition bg-rose-600 text-white shadow-sm";
+        btnMasuk.className = "px-3 py-1.5 rounded-md text-xs font-bold transition text-slate-600 hover:text-slate-900";
+      }
+    }
+
+    function startScanner() {
+      if (!API_URL) {
+        switchTab('settings');
+        return alert("Harap konfigurasi API URL terlebih dahulu!");
+      }
+
+      document.getElementById("scanner-placeholder").classList.add("hidden");
+      document.getElementById("btn-stop-camera").classList.remove("hidden");
+
+      html5QrcodeScanner = new Html5Qrcode("reader");
+      const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+      html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+        .catch(err => {
+          console.error(err);
+          alert("Gagal mengakses kamera.");
+          stopScanner();
+        });
+    }
+
+    function stopScanner() {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.stop().then(() => {
+          html5QrcodeScanner.clear();
+          html5QrcodeScanner = null;
+        }).catch(err => console.error(err));
+      }
+      document.getElementById("scanner-placeholder").classList.remove("hidden");
+      document.getElementById("btn-stop-camera").classList.add("hidden");
+    }
+
+    let isProcessingScan = false;
+    async function onScanSuccess(decodedText) {
+      if (isProcessingScan) return;
+      isProcessingScan = true;
+      playBeep('success');
+      await submitPresensiGuru(decodedText);
+      setTimeout(() => { isProcessingScan = false; }, 3000);
+    }
+
+    function handleManualGuruSubmit(e) {
+      e.preventDefault();
+      const idGuru = document.getElementById("manual-id-guru").value.trim();
+      if (idGuru) {
+        submitPresensiGuru(idGuru);
+        document.getElementById("manual-id-guru").value = "";
+      }
+    }
+
+    async function submitPresensiGuru(idGuru) {
+      Swal.fire({ title: 'Mencatat Presensi...', didOpen: () => Swal.showLoading() });
+
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'presensiGuru',
+            idGuru: idGuru,
+            tipe: modePresensiGuru
+          })
+        });
+
+        const res = await response.json();
+
+        if (res.success) {
+          playBeep('success');
+          Swal.fire({
+            icon: 'success',
+            title: `Presensi ${modePresensiGuru} Berhasil`,
+            text: res.message,
+            timer: 3000
+          });
+
+          document.getElementById("last-guru-scan").innerHTML = `
+            <div class="bg-slate-800 p-3 rounded-lg border border-slate-700">
+              <p class="font-bold text-emerald-400 text-sm">${res.data.nama}</p>
+              <p class="text-xs">Status: <strong>${res.data.status || modePresensiGuru}</strong></p>
+              <p class="text-xs">Jam: ${res.data.jam} WIB</p>
+            </div>
+          `;
+        } else {
+          playBeep('error');
+          Swal.fire('Presensi Gagal', res.message, 'error');
+        }
+      } catch (err) {
+        playBeep('error');
+        Swal.fire('Error', err.toString(), 'error');
+      }
+    }
+
+    async function loadDaftarKelas() {
+      if (!API_URL) return;
+      try {
+        const res = await fetch(`${API_URL}?action=getDaftarKelas`);
+        const json = await res.json();
+        
+        if (json.success) {
+          const select = document.getElementById("select-rombel");
+          select.innerHTML = '<option value="">-- Pilih Rombel --</option>';
+          json.data.forEach(k => {
+            select.innerHTML += `<option value="${k.Kelas_Rombel}">${k.Kelas_Rombel} (${k.Jurusan})</option>`;
+          });
+        }
+      } catch (err) {
+        console.error("Gagal load kelas:", err);
+      }
+    }
+
+    async function loadSiswaByKelas() {
+      const kelas = document.getElementById("select-rombel").value;
+      const tbody = document.getElementById("tbody-siswa");
+      const btnSimpan = document.getElementById("btn-simpan-siswa");
+
+      if (!kelas) {
+        tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-400">Silakan pilih Rombel terlebih dahulu.</td></tr>';
+        btnSimpan.disabled = true;
+        updateSummarySiswa();
+        return;
+      }
+
+      tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-slate-400"><i class="fa-solid fa-spinner fa-spin text-xl mb-2 block"></i>Memuat data siswa rombel...</td></tr>';
+
+      try {
+        const res = await fetch(`${API_URL}?action=getSiswaByKelas&kelas=${encodeURIComponent(kelas)}`);
+        const json = await res.json();
+
+        if (json.success && json.data.length > 0) {
+          listSiswaLoaded = json.data;
+          renderTabelSiswa(listSiswaLoaded);
+          btnSimpan.disabled = false;
+        } else {
+          tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-400">Belum ada data siswa di Rombel ${kelas}.</td></tr>`;
+          btnSimpan.disabled = true;
+        }
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-rose-500">Gagal mengambil data siswa: ${err.toString()}</td></tr>`;
+      }
+    }
+
+    function renderTabelSiswa(siswaArray) {
+      const tbody = document.getElementById("tbody-siswa");
+      tbody.innerHTML = "";
+
+      siswaArray.forEach((s, idx) => {
+        tbody.innerHTML += `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="p-3 text-center font-medium">${idx + 1}</td>
+            <td class="p-3 font-mono text-xs">${s.NIS}</td>
+            <td class="p-3 font-semibold text-slate-900">${s.Nama_Siswa}</td>
+            <td class="p-3 text-center">
+              <div class="inline-flex gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <label class="px-2.5 py-1 rounded cursor-pointer text-xs font-bold transition has-[:checked]:bg-emerald-600 has-[:checked]:text-white">
+                  <input type="radio" name="status-${s.NIS}" value="H" checked onchange="updateSummarySiswa()" class="hidden"> H
+                </label>
+                <label class="px-2.5 py-1 rounded cursor-pointer text-xs font-bold transition has-[:checked]:bg-blue-600 has-[:checked]:text-white">
+                  <input type="radio" name="status-${s.NIS}" value="S" onchange="updateSummarySiswa()" class="hidden"> S
+                </label>
+                <label class="px-2.5 py-1 rounded cursor-pointer text-xs font-bold transition has-[:checked]:bg-amber-500 has-[:checked]:text-white">
+                  <input type="radio" name="status-${s.NIS}" value="I" onchange="updateSummarySiswa()" class="hidden"> I
+                </label>
+                <label class="px-2.5 py-1 rounded cursor-pointer text-xs font-bold transition has-[:checked]:bg-rose-600 has-[:checked]:text-white">
+                  <input type="radio" name="status-${s.NIS}" value="A" onchange="updateSummarySiswa()" class="hidden"> A
+                </label>
+              </div>
+            </td>
+            <td class="p-3">
+              <input type="text" id="ket-${s.NIS}" placeholder="Ket (opsional)" class="w-full px-2.5 py-1 text-xs rounded border border-slate-300 focus:outline-none focus:border-blue-600">
+            </td>
+          </tr>
+        `;
+      });
+
+      updateSummarySiswa();
+    }
+
+    function updateSummarySiswa() {
+      let h = 0, s = 0, i = 0, a = 0;
+      listSiswaLoaded.forEach(siswa => {
+        const checked = document.querySelector(`input[name="status-${siswa.NIS}"]:checked`);
+        if (checked) {
+          const val = checked.value;
+          if (val === 'H') h++;
+          if (val === 'S') s++;
+          if (val === 'I') i++;
+          if (val === 'A') a++;
+        }
+      });
+
+      document.getElementById("stat-h").innerText = `Hadir (H): ${h}`;
+      document.getElementById("stat-s").innerText = `Sakit (S): ${s}`;
+      document.getElementById("stat-i").innerText = `Izin (I): ${i}`;
+      document.getElementById("stat-a").innerText = `Alpa (A): ${a}`;
+    }
+
+    async function simpanPresensiSiswaMassal() {
+      const kelas = document.getElementById("select-rombel").value;
+      const tanggal = document.getElementById("tgl-presensi-siswa").value;
+
+      if (!kelas) return alert("Pilih kelas terlebih dahulu!");
+
+      const payloadPresensi = listSiswaLoaded.map(s => {
+        const status = document.querySelector(`input[name="status-${s.NIS}"]:checked`).value;
+        const keterangan = document.getElementById(`ket-${s.NIS}`).value;
+        return { nis: s.NIS, nama: s.Nama_Siswa, status: status, keterangan: keterangan };
+      });
+
+      Swal.fire({ title: 'Menyimpan Presensi...', didOpen: () => Swal.showLoading() });
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'simpanPresensiSiswaMassal',
+            kelas: kelas,
+            tanggal: tanggal,
+            presensi: payloadPresensi
+          })
+        });
+
+        const json = await res.json();
+        if (json.success) {
+          playBeep('success');
+          Swal.fire('Berhasil!', json.message, 'success');
+        } else {
+          playBeep('error');
+          Swal.fire('Gagal!', json.message, 'error');
+        }
+      } catch (err) {
+        playBeep('error');
+        Swal.fire('Error', err.toString(), 'error');
+      }
+    }
+
+    async function fetchDataMaster() {
+      if (!API_URL) return alert("API URL belum dikonfigurasi.");
+      Swal.fire({ title: 'Memuat Master Data...', didOpen: () => Swal.showLoading() });
+
+      try {
+        const res = await fetch(`${API_URL}?action=getDataMaster`);
+        const json = await res.json();
+
+        if (json.success) {
+          Swal.close();
+
+          const tbodyGuru = document.getElementById("tbody-master-guru");
+          tbodyGuru.innerHTML = "";
+          json.guru.forEach(g => {
+            tbodyGuru.innerHTML += `
+              <tr class="hover:bg-slate-50">
+                <td class="p-3 font-mono font-bold text-xs">${g.ID_Guru}</td>
+                <td class="p-3 font-semibold">${g.Nama_Guru}</td>
+                <td class="p-3">${g.Mapel_Jabatan}</td>
+                <td class="p-3">${g.No_HP}</td>
+              </tr>
+            `;
+          });
+
+          const tbodySiswa = document.getElementById("tbody-master-siswa");
+          tbodySiswa.innerHTML = "";
+          json.siswa.forEach(s => {
+            tbodySiswa.innerHTML += `
+              <tr class="hover:bg-slate-50">
+                <td class="p-3 font-mono text-xs">${s.NIS}</td>
+                <td class="p-3 font-semibold">${s.Nama_Siswa}</td>
+                <td class="p-3 font-bold text-blue-700">${s.Kelas_Rombel}</td>
+                <td class="p-3">${s.Jurusan}</td>
+              </tr>
+            `;
+          });
+
+        } else {
+          Swal.fire('Gagal', json.message, 'error');
+        }
+      } catch (err) {
+        Swal.fire('Error', err.toString(), 'error');
+      }
+    }
+  </script>
+</body>
+</html>
